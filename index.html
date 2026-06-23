@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UBM Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #ececec;
+      --card: #ffffff;
+      --text: #333333;
+      --muted: #7a7a7a;
+      --border: #d9d9d9;
+      --black: #111111;
+      --orange: #f29a2e;
+      --orange-dark: #eb7f14;
+      --pill: #f7f7f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      background: var(--black);
+      color: white;
+      padding: 22px 28px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .brand { font-size: 40px; font-weight: 800; line-height: 1; text-transform: lowercase; }
+    .brand-sub { font-size: 10px; letter-spacing: .25em; text-transform: uppercase; opacity: .7; }
+    .hero {
+      background: linear-gradient(to bottom, rgba(0,0,0,.85), rgba(0,0,0,.75)), radial-gradient(circle at 50% 20%, rgba(242,154,46,.22), transparent 30%);
+      color: white;
+      padding: 48px 28px 40px;
+    }
+    .hero-inner { max-width: 1200px; margin: 0 auto; text-align: center; }
+    .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .3em; opacity: .7; }
+    .hero h1 { margin: 14px 0 10px; font-size: 52px; font-weight: 300; }
+    .hero p { max-width: 880px; margin: 0 auto; font-size: 18px; line-height: 1.7; opacity: .85; }
+    .quick {
+      margin: 28px auto 0;
+      max-width: 1100px;
+      background: rgba(255,255,255,.1);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 28px;
+      padding: 22px;
+    }
+    .quick-title { text-transform: uppercase; letter-spacing: .2em; font-size: 12px; opacity: .7; }
+    .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 18px; }
+    .quick-item { text-align: center; }
+    .quick-value { font-size: 48px; font-weight: 700; }
+    .quick-item.orange .quick-value { color: var(--orange); }
+    .quick-label { margin-top: 8px; font-size: 14px; opacity: .8; }
+    main { max-width: 1240px; margin: 0 auto; padding: 28px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: 0 8px 30px rgba(0,0,0,.04);
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+    .section-title { font-size: 32px; font-weight: 300; margin: 0 0 8px; }
+    .section-text { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .status { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .pill { background: var(--pill); border-radius: 999px; padding: 7px 12px; font-size: 13px; }
+    .pill.ok { background: var(--orange); color: white; }
+    .pill.error { background: var(--black); color: white; }
+    .btn {
+      border: 0;
+      border-radius: 18px;
+      padding: 11px 18px;
+      background: var(--black);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .filters { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; gap: 12px; }
+    .input, .select {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 18px;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    .metric-title { color: var(--muted); font-size: 12px; letter-spacing: .2em; text-transform: uppercase; }
+    .metric-value { font-size: 42px; font-weight: 700; margin-top: 14px; }
+    .metric-value.orange { color: var(--orange); }
+    .metric-sub { color: var(--muted); font-size: 14px; margin-top: 8px; }
+    .tabs { display: flex; gap: 8px; background: white; border: 1px solid var(--border); border-radius: 18px; padding: 4px; width: fit-content; margin-bottom: 16px; }
+    .tab { border: 0; background: transparent; border-radius: 14px; padding: 10px 16px; cursor: pointer; }
+    .tab.active { background: var(--black); color: white; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .two-col { display: grid; grid-template-columns: 1.05fr .95fr; gap: 20px; }
+    .stack { display: grid; gap: 20px; }
+    .opportunity { border: 1px solid #dddddd; border-radius: 24px; padding: 18px; margin-bottom: 14px; }
+    .op-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .op-name { font-size: 28px; font-weight: 300; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .chip { background: var(--pill); border-radius: 999px; padding: 8px 12px; font-size: 13px; }
+    .badge { border-radius: 999px; padding: 7px 12px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); }
+    .badge.orange { background: var(--orange); color: white; border-color: var(--orange); }
+    .badge.dark { background: var(--black); color: white; border-color: var(--black); }
+    .badge.soft { background: #fff3e5; color: #c46f10; border-color: #f3d0a6; }
+    .badge.gray { background: #f5f5f5; color: #555555; border-color: #dedede; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    .list-row { display: flex; justify-content: space-between; gap: 12px; background: var(--pill); padding: 12px 14px; border-radius: 16px; font-size: 14px; }
+    canvas { width: 100% !important; height: 320px !important; }
+    .small canvas { height: 260px !important; }
+    footer {
+      margin-top: 28px;
+      background: linear-gradient(90deg, #f1ad67, #f29a2e, #eb7f14);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    @media (max-width: 1000px) {
+      .quick-grid, .metrics, .filters, .grid-4, .grid-5, .grid-2, .two-col { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">ubm</div>
+    <div class="brand-sub">viajes y turismo</div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">CRM comercial UBM</div>
+      <h1>Dashboard de gestión comercial</h1>
+      <p>Una lectura clara de oportunidades, seguimiento, generación de demanda y performance comercial.</p>
+      <div class="quick">
+        <div class="quick-title">Lectura rápida</div>
+        <div class="quick-grid" id="quickGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <section class="card">
+      <div class="topbar">
+        <div>
+          <h2 class="section-title">Sincronización</h2>
+          <p class="section-text">El dashboard carga automáticamente desde Google Sheets al abrirse. Si hicieron cambios recientes en el CRM, tocá “Sincronizar”.</p>
+        </div>
+        <div class="status">
+          <span id="syncStatus" class="pill">Cargando…</span>
+          <button id="syncBtn" class="btn">Sincronizar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="filters">
+        <input id="searchInput" class="input" placeholder="Buscar cliente, destino, segmento, origen o producto" />
+        <select id="segmentoFilter" class="select"></select>
+        <select id="responsableFilter" class="select"></select>
+        <select id="periodFilter" class="select">
+          <option value="all">Todo</option>
+          <option value="week">Semana</option>
+          <option value="month" selected>Mes</option>
+          <option value="year">Año</option>
+        </select>
+        <input id="dateInput" class="input" type="date" />
+      </div>
+    </section>
+
+    <section class="metrics" id="metricsGrid"></section>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="pipeline">Pipeline</button>
+      <button class="tab" data-tab="marketing">Generación de demanda</button>
+      <button class="tab" data-tab="tendencia">Tendencia</button>
+    </div>
+
+    <section id="pipeline" class="tab-panel active">
+      <div class="two-col">
+        <div class="card">
+          <h2 class="section-title">Oportunidades activas</h2>
+          <p class="section-text">Lectura operativa para priorizar próximas acciones y entender el estado real del pipeline.</p>
+          <div id="opportunitiesList" style="margin-top:18px;"></div>
+        </div>
+        <div class="stack">
+          <div class="card small">
+            <h2 class="section-title">Oportunidades por etapa</h2>
+            <p class="section-text">Vista sintética del avance del pipeline comercial.</p>
+            <canvas id="stageChart"></canvas>
+          </div>
+          <div class="card small">
+            <h2 class="section-title">Participación por segmento</h2>
+            <p class="section-text">Qué clases de oportunidades hoy dominan la conversación comercial.</p>
+            <canvas id="segmentChart"></canvas>
+            <div id="segmentLegend" style="margin-top:14px; display:grid; gap:10px;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="marketing" class="tab-panel">
+      <div class="card">
+        <h2 class="section-title">Generación de demanda</h2>
+        <p class="section-text">Lectura consolidada por origen y campaña a partir de la hoja operativa y los maestros.</p>
+        <div id="marketingList" style="margin-top:18px; display:grid; gap:14px;"></div>
+      </div>
+    </section>
+
+    <section id="tendencia" class="tab-panel">
+      <div class="grid-5" id="trendMetrics"></div>
+      <div class="card">
+        <h2 class="section-title">Movimiento temporal</h2>
+        <p class="section-text">Comparación entre leads generados y ventas cerradas dentro del período filtrado.</p>
+        <canvas id="trendChart"></canvas>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h2 class="section-title">Ventas por segmento</h2><div id="salesBySegment"></div></div>
+        <div class="card"><h2 class="section-title">Ventas por producto / destino</h2><div id="salesByProduct"></div></div>
+        <div class="card"><h2 class="section-title">Margen por segmento</h2><div id="marginBySegment"></div></div>
+        <div class="card"><h2 class="section-title">Margen por producto / destino</h2><div id="marginByProduct"></div></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="brand">ubm</div>
+    <div class="brand-sub">viajes y turismo</div>
+  </footer>
+
+  <script>
+    const CRM_OPERATIVO_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSuJzxoH6Dm7gltvpGgqp0j5h2ZFE1vRsY8t-xF9IpI61fHLiH5elsj_VxMWx0vD9UbcpERwxewuBJq/pub?gid=846010231&single=true&output=csv";
+    const MAESTROS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSuJzxoH6Dm7gltvpGgqp0j5h2ZFE1vRsY8t-xF9IpI61fHLiH5elsj_VxMWx0vD9UbcpERwxewuBJq/pub?gid=1348380983&single=true&output=csv";
+    const COLORS = ["#f29a2e", "#333333", "#9a9a9a", "#d27d19", "#545454", "#8b5cf6", "#0f766e"];
+
+    let rawData = [];
+    let maestros = { responsables: {}, segmentos: {}, origenes: {}, etapas: {}, proximas: {}, seguimientos: {}, perdidas: {} };
+    let charts = {};
+
+    function setSyncStatus(text, type = "") {
+      const el = document.getElementById("syncStatus");
+      el.textContent = text;
+      el.className = `pill ${type}`.trim();
+    }
+
+    function parseCsv(url) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(url, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results.data || []),
+          error: reject,
+        });
+      });
+    }
+
+    function toNumber(value) {
+      if (value === null || value === undefined || value === "") return 0;
+      const n = String(value).replace(/\./g, "").replace(/,/g, ".").replace(/[^0-9.-]/g, "");
+      const parsed = Number(n);
+      return Number.isNaN(parsed) ? 0 : parsed;
+    }
+
+    function parseDate(value) {
+      if (!value) return null;
+      const direct = new Date(value);
+      if (!Number.isNaN(direct.getTime())) return direct;
+      const parts = String(value).split("/");
+      if (parts.length === 3) {
+        const [d,m,y] = parts.map(Number);
+        const alt = new Date(y, m - 1, d);
+        if (!Number.isNaN(alt.getTime())) return alt;
+      }
+      return null;
+    }
+
+    function toISODate(date) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    function startOfWeek(date) {
+      const copy = new Date(date);
+      const day = copy.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      copy.setDate(copy.getDate() + diff);
+      copy.setHours(0,0,0,0);
+      return copy;
+    }
+
+    function endOfWeek(date) {
+      const end = startOfWeek(date);
+      end.setDate(end.getDate() + 6);
+      end.setHours(23,59,59,999);
+      return end;
+    }
+
+    function getRange(mode, reference) {
+      if (mode === "all") return { start: null, end: null };
+      const base = parseDate(reference) || new Date();
+      if (mode === "week") return { start: startOfWeek(base), end: endOfWeek(base) };
+      if (mode === "month") return { start: new Date(base.getFullYear(), base.getMonth(), 1), end: new Date(base.getFullYear(), base.getMonth()+1, 0, 23,59,59,999) };
+      return { start: new Date(base.getFullYear(),0,1), end: new Date(base.getFullYear(),11,31,23,59,59,999) };
+    }
+
+    function formatUSD(value) {
+      return new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value || 0);
+    }
+
+    function formatPeriod(date, mode) {
+      return mode === "year"
+        ? date.toLocaleDateString("es-AR", { month: "short" })
+        : date.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+    }
+
+    function normalizeMasters(rows) {
+      const currentType = {};
+      const result = { responsables: {}, segmentos: {}, origenes: {}, etapas: {}, proximas: {}, seguimientos: {}, perdidas: {} };
+      rows.forEach((row) => {
+        const values = Object.values(row).map(v => String(v || "").trim());
+        const header = values.find(v => ["Responsables","Segmentos","Origen lead","Etapas","Próxima acción","Estado seguimiento","Motivo pérdida"].includes(v));
+        if (header) currentType.active = header;
+        const id = values.find(v => /^[A-Z]{2,}_/.test(v));
+        if (!id) return;
+        const name = values[values.indexOf(id) + 1] || "";
+        const key = currentType.active;
+        if (key === "Responsables") result.responsables[id] = name;
+        if (key === "Segmentos") result.segmentos[id] = name;
+        if (key === "Origen lead") result.origenes[id] = name;
+        if (key === "Etapas") result.etapas[id] = name;
+        if (key === "Próxima acción") result.proximas[id] = name;
+        if (key === "Estado seguimiento") result.seguimientos[id] = name;
+        if (key === "Motivo pérdida") result.perdidas[id] = name;
+      });
+      return result;
+    }
+
+    function normalizeRows(rows) {
+      return rows
+        .filter(r => r.ID_Oportunidad && r.ID_Oportunidad !== "Ejemplo")
+        .map(r => ({
+          id: r.ID_Oportunidad,
+          fechaIngreso: r.Fecha_Ingreso,
+          cliente: r.Cliente || "Sin nombre",
+          telefono: r.Telefono || "",
+          email: r.Email || "",
+          ciudad: r.Ciudad || "",
+          responsableId: r.Responsable_ID || "",
+          responsable: r.Responsable || maestros.responsables[r.Responsable_ID] || "Sin responsable",
+          segmentoId: r.Segmento_ID || "",
+          segmento: r.Segmento || maestros.segmentos[r.Segmento_ID] || "Sin segmento",
+          origenId: r.Origen_ID || "",
+          origen: r.Origen_Lead || maestros.origenes[r.Origen_ID] || "Sin origen",
+          campana: r.Campaña || "",
+          referido: r.Referido_Por || "",
+          destino: r.Destino || "Sin destino",
+          producto: r.Producto || "Sin producto",
+          etapaId: r.Etapa_ID || "",
+          etapa: r.Etapa || maestros.etapas[r.Etapa_ID] || "Sin etapa",
+          prioridad: toNumber(r.Prioridad),
+          valorCotizado: toNumber(r.Valor_Cotizado_USD),
+          valorVendido: toNumber(r.Valor_Vendido_USD),
+          costo: toNumber(r.Costo_USD),
+          margen: toNumber(r.Margen_USD),
+          fechaProxima: r.Fecha_Proxima_Accion || "",
+          proximaId: r.Proxima_Accion_ID || "",
+          proxima: r.Proxima_Accion || maestros.proximas[r.Proxima_Accion_ID] || "",
+          seguimientoId: r.Estado_Seguimiento_ID || "",
+          seguimiento: r.Estado_Seguimiento || maestros.seguimientos[r.Estado_Seguimiento_ID] || "",
+          perdidaId: r.Motivo_Perdida_ID || "",
+          perdida: r.Motivo_Perdida || maestros.perdidas[r.Motivo_Perdida_ID] || "",
+          fechaViaje: r.Fecha_Viaje || "",
+          fechaRegreso: r.Fecha_Regreso || "",
+          feedback: r.Feedback_PostViaje || "",
+          testimonio: r.Pidio_Testimonio || "",
+          referidoGenerado: r.Genero_Referido || "",
+          proximaOportunidad: r.Proxima_Oportunidad || "",
+          notas: r.Notas || "",
+        }));
+    }
+
+    function fillFilters(rows) {
+      const seg = Array.from(new Set(rows.map(r => r.segmento))).sort();
+      const resp = Array.from(new Set(rows.map(r => r.responsable))).sort();
+      const segSelect = document.getElementById("segmentoFilter");
+      const respSelect = document.getElementById("responsableFilter");
+      segSelect.innerHTML = `<option value="Todos">Segmento · Todos</option>${seg.map(v => `<option>${v}</option>`).join("")}`;
+      respSelect.innerHTML = `<option value="Todos">Responsable · Todos</option>${resp.map(v => `<option>${v}</option>`).join("")}`;
+    }
+
+    function getFilteredRows() {
+      const search = document.getElementById("searchInput").value.toLowerCase();
+      const segmento = document.getElementById("segmentoFilter").value;
+      const responsable = document.getElementById("responsableFilter").value;
+      const mode = document.getElementById("periodFilter").value;
+      const reference = document.getElementById("dateInput").value;
+      const range = getRange(mode, reference);
+
+      return rawData.filter(r => {
+        const textOk = !search || `${r.cliente} ${r.destino} ${r.segmento} ${r.origen} ${r.producto}`.toLowerCase().includes(search);
+        const segOk = segmento === "Todos" || r.segmento === segmento;
+        const respOk = responsable === "Todos" || r.responsable === responsable;
+        let dateOk = true;
+        if (range.start && range.end) {
+          const d = parseDate(r.fechaIngreso);
+          dateOk = !!d && d >= range.start && d <= range.end;
+        }
+        return textOk && segOk && respOk && dateOk;
+      });
+    }
+
+    function metricCard(title, value, sub, orange = false) {
+      return `<div class="card" style="margin:0;"><div class="metric-title">${title}</div><div class="metric-value ${orange ? 'orange' : ''}">${value}</div><div class="metric-sub">${sub}</div></div>`;
+    }
+
+    function groupedSum(rows, keyFn, valueFn, top = 5) {
+      const map = {};
+      rows.forEach(r => {
+        const key = keyFn(r) || "Sin clasificar";
+        map[key] = (map[key] || 0) + valueFn(r);
+      });
+      return Object.entries(map).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value).slice(0, top);
+    }
+
+    function renderList(containerId, items, formatter) {
+      const container = document.getElementById(containerId);
+      if (!items.length) {
+        container.innerHTML = `<div class="list-row"><span>Sin datos en el período seleccionado</span><strong>—</strong></div>`;
+        return;
+      }
+      container.innerHTML = items.map(i => `<div class="list-row"><span>${i.label}</span><strong>${formatter(i.value)}</strong></div>`).join("");
+    }
+
+    function stageBadgeClass(etapa) {
+      if (["Ganada"].includes(etapa)) return "badge orange";
+      if (["Perdida","Descartado"].includes(etapa)) return "badge dark";
+      if (["Diagnóstico","Análisis","Cotizado","Negociación"].includes(etapa)) return "badge soft";
+      return "badge gray";
+    }
+
+    function renderCharts(rows) {
+      const stageMap = {};
+      const segMap = {};
+      rows.forEach(r => {
+        stageMap[r.etapa] = (stageMap[r.etapa] || 0) + 1;
+        segMap[r.segmento] = (segMap[r.segmento] || 0) + 1;
+      });
+      const stageLabels = Object.keys(stageMap);
+      const stageData = Object.values(stageMap);
+      const segLabels = Object.keys(segMap);
+      const segData = Object.values(segMap);
+
+      if (charts.stage) charts.stage.destroy();
+      if (charts.segment) charts.segment.destroy();
+      if (charts.trend) charts.trend.destroy();
+
+      charts.stage = new Chart(document.getElementById('stageChart'), {
+        type: 'bar',
+        data: { labels: stageLabels, datasets: [{ data: stageData, backgroundColor: '#f29a2e', borderRadius: 10 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+
+      charts.segment = new Chart(document.getElementById('segmentChart'), {
+        type: 'doughnut',
+        data: { labels: segLabels, datasets: [{ data: segData, backgroundColor: COLORS }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw}` } }
+          }
+        }
+      });
+
+      const total = segData.reduce((a,b)=>a+b,0);
+      document.getElementById('segmentLegend').innerHTML = segLabels.map((label, i) => {
+        const percent = total ? Math.round(segData[i] / total * 100) : 0;
+        return `<div class="list-row"><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${COLORS[i % COLORS.length]};margin-right:10px;"></span>${label}</span><strong>${segData[i]} · ${percent}%</strong></div>`;
+      }).join('');
+
+      const mode = document.getElementById("periodFilter").value;
+      const trendMap = {};
+      rows.forEach(r => {
+        const d = parseDate(r.fechaIngreso);
+        if (!d) return;
+        const key = formatPeriod(d, mode);
+        if (!trendMap[key]) trendMap[key] = { leads: 0, ventas: 0 };
+        trendMap[key].leads += 1;
+        if (r.valorVendido > 0) trendMap[key].ventas += 1;
+      });
+      const trendLabels = Object.keys(trendMap);
+      charts.trend = new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+          labels: trendLabels,
+          datasets: [
+            { label: 'Leads', data: trendLabels.map(l => trendMap[l].leads), borderColor: '#f29a2e', backgroundColor: '#f29a2e', tension: .3 },
+            { label: 'Ventas', data: trendLabels.map(l => trendMap[l].ventas), borderColor: '#333333', backgroundColor: '#333333', tension: .3 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    function renderDashboard() {
+      const rows = getFilteredRows();
+      const leads = rows.length;
+      const ganadas = rows.filter(r => r.valorVendido > 0).length;
+      const abiertas = rows.filter(r => !['Ganada','Perdida','Descartado','Post viaje'].includes(r.etapa)).length;
+      const ventaTotal = rows.reduce((a,r)=>a+r.valorVendido,0);
+      const margenTotal = rows.reduce((a,r)=>a+r.margen,0);
+      const today = toISODate(new Date());
+      const vencidas = rows.filter(r => r.fechaProxima && r.fechaProxima < today && r.valorVendido <= 0 && !['Perdida','Descartado'].includes(r.etapa)).length;
+
+      document.getElementById('quickGrid').innerHTML = [
+        { label: 'leads visibles', value: `+${leads}`, orange: true },
+        { label: 'ventas cerradas', value: ganadas },
+        { label: 'abiertas', value: abiertas },
+        { label: 'vencidas', value: vencidas, orange: true }
+      ].map(i => `<div class="quick-item ${i.orange ? 'orange' : ''}"><div class="quick-value">${i.value}</div><div class="quick-label">${i.label}</div></div>`).join('');
+
+      document.getElementById('metricsGrid').innerHTML = [
+        metricCard('Leads visibles', leads, 'Oportunidades según filtros', true),
+        metricCard('Oportunidades abiertas', abiertas, 'En gestión activa'),
+        metricCard('Ventas cerradas', ganadas, 'Con valor vendido'),
+        metricCard('Venta total', formatUSD(ventaTotal), 'Valor vendido acumulado', true),
+        metricCard('Seguimientos vencidos', vencidas, 'Pendientes de reacción')
+      ].join('');
+
+      document.getElementById('opportunitiesList').innerHTML = rows.map(r => `
+        <div class="opportunity">
+          <div class="op-head">
+            <div>
+              <div class="op-name">${r.cliente}</div>
+              <div class="chips">
+                <span class="chip">${r.segmento}</span>
+                <span class="chip">${r.destino}</span>
+                <span class="chip">Origen: ${r.origen}</span>
+              </div>
+              <div style="margin-top:10px; font-size:14px; color:#5f5f5f;">Responsable: <strong>${r.responsable}</strong></div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-start;">
+              <span class="${stageBadgeClass(r.etapa)}">${r.etapa}</span>
+              <span class="badge soft">${formatUSD(r.valorVendido > 0 ? r.valorVendido : r.valorCotizado)}</span>
+            </div>
+          </div>
+          <div style="margin-top:14px; font-size:14px; color:#7a7a7a;">Próxima acción: ${r.fechaProxima || 'Sin fecha'}${r.proxima ? ` · ${r.proxima}` : ''}</div>
+        </div>`).join('') || `<div class="list-row"><span>Sin oportunidades en el filtro elegido</span><strong>—</strong></div>`;
+
+      const marketingMap = {};
+      rows.forEach(r => {
+        const key = `${r.origen}__${r.campana || 'Sin campaña'}`;
+        if (!marketingMap[key]) marketingMap[key] = { accion: r.campana || 'Sin campaña', origen: r.origen, leads: 0, cotizados: 0, ganadas: 0, ventas: 0, margen: 0 };
+        marketingMap[key].leads += 1;
+        if (['Diagnóstico','Análisis','Cotizado','Negociación','Ganada','Post viaje'].includes(r.etapa)) marketingMap[key].cotizados += 1;
+        if (r.valorVendido > 0) {
+          marketingMap[key].ganadas += 1;
+          marketingMap[key].ventas += r.valorVendido;
+          marketingMap[key].margen += r.margen;
+        }
+      });
+      const marketingRows = Object.values(marketingMap);
+      document.getElementById('marketingList').innerHTML = marketingRows.map(m => `
+        <div class="opportunity">
+          <div class="op-head">
+            <div>
+              <div class="op-name">${m.accion}</div>
+              <div style="margin-top:8px; font-size:14px; color:#7a7a7a;">Origen: ${m.origen} · Leads: ${m.leads} · Cotizados: ${m.cotizados} · Ganadas: ${m.ganadas}</div>
+            </div>
+            <div><span class="badge orange">Conversión ${m.leads ? Math.round(m.ganadas / m.leads * 100) : 0}%</span></div>
+          </div>
+          <div class="grid-4" style="margin-top:14px;">
+            <div class="list-row"><span>Campaña</span><strong>${m.accion}</strong></div>
+            <div class="list-row"><span>Ventas</span><strong>${formatUSD(m.ventas)}</strong></div>
+            <div class="list-row"><span>Margen</span><strong>${formatUSD(m.margen)}</strong></div>
+            <div class="list-row"><span>Resultado</span><strong>${m.ganadas} cierres</strong></div>
+          </div>
+        </div>`).join('') || `<div class="list-row"><span>Sin datos de marketing</span><strong>—</strong></div>`;
+
+      const sold = rows.filter(r => r.valorVendido > 0);
+      const salesBySegment = groupedSum(sold, r => r.segmento, r => r.valorVendido);
+      const salesByProduct = groupedSum(sold, r => `${r.producto} · ${r.destino}`, r => r.valorVendido);
+      const marginBySegment = groupedSum(sold, r => r.segmento, r => r.margen);
+      const marginByProduct = groupedSum(sold, r => `${r.producto} · ${r.destino}`, r => r.margen);
+      document.getElementById('trendMetrics').innerHTML = [
+        metricCard('Ventas totales', formatUSD(ventaTotal), 'Valor vendido del período', true),
+        metricCard('Margen total', formatUSD(margenTotal), 'Margen acumulado del período'),
+        metricCard('Segmentos con venta', salesBySegment.length, 'Con ventas registradas'),
+        metricCard('Productos / destinos', salesByProduct.length, 'Combinaciones con venta'),
+        metricCard('Período', document.getElementById('periodFilter').selectedOptions[0].text, document.getElementById('dateInput').value)
+      ].join('');
+      renderList('salesBySegment', salesBySegment, formatUSD);
+      renderList('salesByProduct', salesByProduct, formatUSD);
+      renderList('marginBySegment', marginBySegment, formatUSD);
+      renderList('marginByProduct', marginByProduct, formatUSD);
+      renderCharts(rows);
+    }
+
+    async function syncData() {
+      try {
+        setSyncStatus('Sincronizando...', '');
+        const [crmRows, masterRows] = await Promise.all([parseCsv(CRM_OPERATIVO_URL), parseCsv(MAESTROS_URL)]);
+        maestros = normalizeMasters(masterRows);
+        rawData = normalizeRows(crmRows);
+        fillFilters(rawData);
+        renderDashboard();
+        setSyncStatus('Conectado', 'ok');
+      } catch (err) {
+        console.error(err);
+        setSyncStatus('Error de conexión', 'error');
+      }
+    }
+
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.getElementById('syncBtn').addEventListener('click', syncData);
+    ['searchInput','segmentoFilter','responsableFilter','periodFilter','dateInput'].forEach(id => {
+      document.getElementById(id).addEventListener('input', renderDashboard);
+      document.getElementById(id).addEventListener('change', renderDashboard);
+    });
+    document.getElementById('dateInput').value = toISODate(new Date());
+    syncData();
+  </script>
+</body>
+</html>
